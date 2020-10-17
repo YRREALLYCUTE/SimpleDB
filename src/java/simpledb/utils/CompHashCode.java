@@ -5,7 +5,7 @@ import java.lang.reflect.Field;
 public class CompHashCode {
 
     public static int compute(Class<?> aClass, Object o) {
-        Field[] fields = aClass.getFields();
+        Field[] fields = aClass.getDeclaredFields();
         int res = 17;
         for (Field field : fields) {
             if(field.getType() == int.class
@@ -13,6 +13,7 @@ public class CompHashCode {
                     || field.getType() == char.class
                     || field.getType() == short.class) {
                 try {
+                    field.setAccessible(true);
                     res = res * 37 + (int)(field.get(o));
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
@@ -21,6 +22,7 @@ public class CompHashCode {
             else if(field.getType() == double.class) {
                 long tmp = 0;
                 try {
+                    field.setAccessible(true);
                     tmp = Double.doubleToLongBits(field.getDouble(o));
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
@@ -31,6 +33,7 @@ public class CompHashCode {
             else if(field.getType() == boolean.class) {
                 int c = 0;
                 try {
+                    field.setAccessible(true);
                     c = field.getBoolean(o) ? 1:0;
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
@@ -38,6 +41,7 @@ public class CompHashCode {
                 res = res * 37 + c;
             } else {
                 try {
+                    field.setAccessible(true);
                     res = res * 37 + field.get(o).hashCode();
                 } catch (IllegalAccessException e) {
                     e.printStackTrace();
