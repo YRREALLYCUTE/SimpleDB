@@ -114,7 +114,7 @@ public class Tuple implements Serializable {
         }
         String ret = res.toString();
         if(fields.size() != 0)
-            ret = ret.substring(0, res.length() - 2);
+            ret = ret.substring(0, res.length() - 1);
         return ret;
     }
 

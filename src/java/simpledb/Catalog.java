@@ -13,7 +13,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * For now, this is a stub catalog that must be populated with tables by a
  * user program before it can be used -- eventually, this should be converted
  * to a catalog that reads a catalog table from disk.
- * 
+ * Catalog 目录
+ * 实际上类似数据库管理工具中，show tables命令
+ * 主要存储了数据库的table信息
+ * contains a list of tables and the schema of those tables
  * @Threadsafe
  */
 public class Catalog {

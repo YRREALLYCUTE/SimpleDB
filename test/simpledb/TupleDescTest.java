@@ -152,7 +152,6 @@ public class TupleDescTest extends SimpleDbTestBase {
 
         // .equals() with null should return false
         assertFalse(singleInt.equals(null));
-
         // .equals() with the wrong type should return false
         assertFalse(singleInt.equals(new Object()));
 
