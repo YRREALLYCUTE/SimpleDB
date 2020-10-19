@@ -17,16 +17,30 @@ import java.util.concurrent.ConcurrentHashMap;
  * 实际上类似数据库管理工具中，show tables命令
  * 主要存储了数据库的table信息
  * contains a list of tables and the schema of those tables
- * @Threadsafe
+ * @Threadsafe 需要保证线程安全
  */
 public class Catalog {
 
+    private static class Table{
+        String tableName;
+        String pkeyField;
+        DbFile dbFile;
+
+        public Table(String tableName, String pkeyField, DbFile dbFile){
+            this.tableName =tableName;
+            this.dbFile = dbFile;
+            this.pkeyField = pkeyField;
+        }
+    }
+
+    private List<Table> tables = new ArrayList<>();
     /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
         // some code goes here
+
     }
 
     /**
@@ -40,6 +54,12 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
+        for (Table table : tables) {
+            if(table.tableName.equals(name) || table.dbFile.getId() == file.getId()){
+                this.tables.set(tables.indexOf(table), new Table(name, pkeyField, file));
+            }
+        }
+        this.tables.add(new Table(name, pkeyField, file));
     }
 
     public void addTable(DbFile file, String name) {
@@ -63,7 +83,12 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        return 0;
+        for (Table table : tables) {
+            if(table.tableName.equals(name)){
+                return table.dbFile.getId();
+            }
+        }
+        throw new NoSuchElementException(String.format("没有找到名为： %s的表", name));
     }
 
     /**
@@ -74,7 +99,12 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        for(Table table : tables) {
+            if(table.dbFile.getId() == tableid) {
+                return table.dbFile.getTupleDesc();
+            }
+        }
+       throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
     }
 
     /**
@@ -85,27 +115,54 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        return null;
+        for(Table table : tables) {
+            if(table.dbFile.getId() == tableid) {
+                return table.dbFile;
+            }
+        }
+        throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        return null;
+        for(Table table : tables) {
+            if(table.dbFile.getId() == tableid) {
+                return table.pkeyField;
+            }
+        }
+        throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        return null;
+        Iterator<Integer> it = new Iterator<Integer>() {
+            @Override
+            public boolean hasNext() {
+                return tables.iterator().hasNext();
+            }
+
+            @Override
+            public Integer next() {
+                return tables.iterator().next().dbFile.getId();
+            }
+        };
+        return it;
     }
 
     public String getTableName(int id) {
         // some code goes here
-        return null;
+        for(Table table : tables) {
+            if(table.dbFile.getId() == id) {
+                return table.tableName;
+            }
+        }
+        throw new NoSuchElementException(String.format("没有找到id为：%d的表", id));
     }
     
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
+        this.tables.clear();
     }
     
     /**
