@@ -26,21 +26,21 @@ public class Catalog {
         String pkeyField;
         DbFile dbFile;
 
-        public Table(String tableName, String pkeyField, DbFile dbFile){
+        Table(String tableName, String pkeyField, DbFile dbFile){
             this.tableName =tableName;
             this.dbFile = dbFile;
             this.pkeyField = pkeyField;
         }
     }
 
-    private List<Table> tables = new ArrayList<>();
+    private ConcurrentHashMap<Integer, Table> tables;
     /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
         // some code goes here
-
+        this.tables = new ConcurrentHashMap<>();
     }
 
     /**
@@ -54,12 +54,16 @@ public class Catalog {
      */
     public void addTable(DbFile file, String name, String pkeyField) {
         // some code goes here
-        for (Table table : tables) {
-            if(table.tableName.equals(name) || table.dbFile.getId() == file.getId()){
-                this.tables.set(tables.indexOf(table), new Table(name, pkeyField, file));
+        Set<Integer> keySet = tables.keySet();
+        for (Integer key : keySet) {
+            // 如果表已经存在于目录中，则将前一个替换
+            if(tables.get(key).tableName.equals(name)){
+                this.tables.remove(key);
+                break;
             }
         }
-        this.tables.add(new Table(name, pkeyField, file));
+        Table t = new Table(name, pkeyField, file);
+        this.tables.put(file.getId(), t);
     }
 
     public void addTable(DbFile file, String name) {
@@ -83,9 +87,10 @@ public class Catalog {
      */
     public int getTableId(String name) throws NoSuchElementException {
         // some code goes here
-        for (Table table : tables) {
-            if(table.tableName.equals(name)){
-                return table.dbFile.getId();
+        Set<Integer> keys = tables.keySet();
+        for (Integer key : keys) {
+            if(tables.get(key).tableName.equals(name)){
+                return key;
             }
         }
         throw new NoSuchElementException(String.format("没有找到名为： %s的表", name));
@@ -99,12 +104,9 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        for(Table table : tables) {
-            if(table.dbFile.getId() == tableid) {
-                return table.dbFile.getTupleDesc();
-            }
-        }
-       throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
+        if(tables.get(tableid)==null)
+            throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
+        return tables.get(tableid).dbFile.getTupleDesc();
     }
 
     /**
@@ -115,56 +117,36 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        for(Table table : tables) {
-            if(table.dbFile.getId() == tableid) {
-                return table.dbFile;
-            }
-        }
-        throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
+        if(tables.get(tableid)==null)
+            throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
+        return tables.get(tableid).dbFile;
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        for(Table table : tables) {
-            if(table.dbFile.getId() == tableid) {
-                return table.pkeyField;
-            }
-        }
-        throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
+        if(tables.get(tableid) == null)
+            throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
+        return tables.get(tableid).pkeyField;
     }
 
     public Iterator<Integer> tableIdIterator() {
         // some code goes here
-        Iterator<Integer> it = new Iterator<Integer>() {
-            @Override
-            public boolean hasNext() {
-                return tables.iterator().hasNext();
-            }
-
-            @Override
-            public Integer next() {
-                return tables.iterator().next().dbFile.getId();
-            }
-        };
-        return it;
+        return tables.keySet().iterator();
     }
 
     public String getTableName(int id) {
         // some code goes here
-        for(Table table : tables) {
-            if(table.dbFile.getId() == id) {
-                return table.tableName;
-            }
-        }
-        throw new NoSuchElementException(String.format("没有找到id为：%d的表", id));
+        if(tables.get(id) == null)
+            throw new NoSuchElementException(String.format("没有找到id为：%d的表", id));
+        return tables.get(id).tableName;
     }
-    
+
     /** Delete all tables from the catalog */
     public void clear() {
         // some code goes here
         this.tables.clear();
     }
-    
+
     /**
      * Reads the schema from a file and creates the appropriate tables in the database.
      * @param catalogFile
@@ -174,7 +156,7 @@ public class Catalog {
         String baseFolder=new File(new File(catalogFile).getAbsolutePath()).getParent();
         try {
             BufferedReader br = new BufferedReader(new FileReader(new File(catalogFile)));
-            
+
             while ((line = br.readLine()) != null) {
                 //assume line is of the format name (field type, field type, ...)
                 String name = line.substring(0, line.indexOf("(")).trim();
