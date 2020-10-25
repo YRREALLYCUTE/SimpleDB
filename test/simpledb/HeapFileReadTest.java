@@ -50,8 +50,8 @@ public class HeapFileReadTest extends SimpleDbTestBase {
      * Unit test for HeapFile.getTupleDesc()
      */
     @Test
-    public void getTupleDesc() throws Exception {    	
-        assertEquals(td, hf.getTupleDesc());        
+    public void getTupleDesc() throws Exception {
+        assertEquals(td, hf.getTupleDesc());
     }
     /**
      * Unit test for HeapFile.numPages()
