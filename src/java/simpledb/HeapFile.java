@@ -179,6 +179,7 @@ public class HeapFile implements DbFile {
             public void close() {
                 readingPage = pages+1;
                 it = null;
+                Database.getBufferPool().releasePage(tid, readingPid);
             }
         };
     }
