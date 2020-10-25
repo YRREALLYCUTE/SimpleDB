@@ -104,7 +104,7 @@ public class Catalog {
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
         // some code goes here
-        if(tables.get(tableid)==null)
+        if(!tables.containsKey(tableid))
             throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
         return tables.get(tableid).dbFile.getTupleDesc();
     }
@@ -117,14 +117,14 @@ public class Catalog {
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
         // some code goes here
-        if(tables.get(tableid)==null)
+        if(!tables.containsKey(tableid))
             throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
         return tables.get(tableid).dbFile;
     }
 
     public String getPrimaryKey(int tableid) {
         // some code goes here
-        if(tables.get(tableid) == null)
+        if(!tables.containsKey(tableid))
             throw new NoSuchElementException(String.format("没有找到tableID为：%d的表", tableid));
         return tables.get(tableid).pkeyField;
     }
@@ -136,7 +136,7 @@ public class Catalog {
 
     public String getTableName(int id) {
         // some code goes here
-        if(tables.get(id) == null)
+        if(!tables.containsKey(id))
             throw new NoSuchElementException(String.format("没有找到id为：%d的表", id));
         return tables.get(id).tableName;
     }

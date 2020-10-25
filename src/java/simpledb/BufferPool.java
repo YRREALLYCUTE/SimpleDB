@@ -89,7 +89,7 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
         throws TransactionAbortedException, DbException {
         // some code goes here
-        if(pages.get(pid) != null)
+        if(!pages.containsKey(pid))
             return pages.get(pid);
         if(pages.size() >= maxPages)
             throw new DbException("lab1--缓冲池空间不足");
