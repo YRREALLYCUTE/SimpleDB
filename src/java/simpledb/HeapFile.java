@@ -148,9 +148,10 @@ public class HeapFile implements DbFile {
                     boolean hasNextTupleInPage = it.hasNext();
                     if(!hasNextTupleInPage){
                         Database.getBufferPool().releasePage(tid, readingPid);
-                        readingPid = new HeapPageId(getId(), readingPage);
                         readingPage++;
+                        readingPid = new HeapPageId(getId(), readingPage);
                         page = Database.getBufferPool().getPage(tid, readingPid, Permissions.READ_ONLY);
+                        it = ((HeapPage) page).iterator();
                     }
                     return true;
                 }
