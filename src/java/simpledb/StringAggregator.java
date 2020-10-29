@@ -1,11 +1,26 @@
 package simpledb;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.NoSuchElementException;
+
 /**
  * Knows how to compute some aggregate over a set of StringFields.
  */
 public class StringAggregator implements Aggregator {
 
     private static final long serialVersionUID = 1L;
+
+    private int gbfield;
+
+    private Type gbfieldtype;
+
+    private int afield;
+
+    private Op what;
+
+    private HashMap<Object, List<Tuple>> group;
 
     /**
      * Aggregate constructor
@@ -18,6 +33,14 @@ public class StringAggregator implements Aggregator {
 
     public StringAggregator(int gbfield, Type gbfieldtype, int afield, Op what) {
         // some code goes here
+        if(!what.equals(Op.COUNT))
+            throw new IllegalArgumentException("字符型只支持COUNT操作！");
+        this.gbfield = gbfield;
+        this.gbfieldtype = gbfieldtype;
+        this.afield = afield;
+        this.what = what;
+
+        this.group = new HashMap<>();
     }
 
     /**
@@ -26,6 +49,26 @@ public class StringAggregator implements Aggregator {
      */
     public void mergeTupleIntoGroup(Tuple tup) {
         // some code goes here
+        if(this.gbfield == NO_GROUPING) {
+            if(this.group.containsKey(NO_GROUPING)){
+                this.group.get(NO_GROUPING).add(tup);
+            }else {
+                List<Tuple> tups = new ArrayList<>();
+                tups.add(tup);
+                this.group.put(NO_GROUPING, tups);
+            }
+        }else {
+            Field field = tup.getField(this.gbfield);
+
+            if(this.group.containsKey(field)) {
+                this.group.get(field).add(tup);
+            }else{
+                List<Tuple> tuples = new ArrayList<>();
+                tuples.add(tup);
+                this.group.put(field, tuples);
+            }
+        }
+
     }
 
     /**
@@ -38,7 +81,37 @@ public class StringAggregator implements Aggregator {
      */
     public OpIterator iterator() {
         // some code goes here
-        throw new UnsupportedOperationException("please implement me for lab2");
+        return new OpIterator() {
+            @Override
+            public void open() throws DbException, TransactionAbortedException {
+
+            }
+
+            @Override
+            public boolean hasNext() throws DbException, TransactionAbortedException {
+                return false;
+            }
+
+            @Override
+            public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
+                return null;
+            }
+
+            @Override
+            public void rewind() throws DbException, TransactionAbortedException {
+
+            }
+
+            @Override
+            public TupleDesc getTupleDesc() {
+                return null;
+            }
+
+            @Override
+            public void close() {
+
+            }
+        };
     }
 
 }

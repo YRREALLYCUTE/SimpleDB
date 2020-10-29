@@ -19,6 +19,7 @@ public class Select {
             // tuples via its iterator.
             TransactionId tid = new TransactionId();
             SeqScan f = new SeqScan(tid, table1.getId());
+            System.out.println(names[0] + " " + names[1] + " " + names[2] );
             try {
                 // and run it
                 f.open();
