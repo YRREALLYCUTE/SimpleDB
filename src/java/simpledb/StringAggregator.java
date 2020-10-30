@@ -1,9 +1,6 @@
 package simpledb;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 /**
  * Knows how to compute some aggregate over a set of StringFields.
@@ -17,8 +14,6 @@ public class StringAggregator implements Aggregator {
     private Type gbfieldtype;
 
     private int afield;
-
-    private Op what;
 
     private HashMap<Object, List<Tuple>> group;
 
@@ -35,10 +30,10 @@ public class StringAggregator implements Aggregator {
         // some code goes here
         if(!what.equals(Op.COUNT))
             throw new IllegalArgumentException("字符型只支持COUNT操作！");
+
         this.gbfield = gbfield;
         this.gbfieldtype = gbfieldtype;
         this.afield = afield;
-        this.what = what;
 
         this.group = new HashMap<>();
     }
@@ -49,6 +44,8 @@ public class StringAggregator implements Aggregator {
      */
     public void mergeTupleIntoGroup(Tuple tup) {
         // some code goes here
+        if(tup.getField(afield) == null)
+            return;
         if(this.gbfield == NO_GROUPING) {
             if(this.group.containsKey(NO_GROUPING)){
                 this.group.get(NO_GROUPING).add(tup);
@@ -82,34 +79,70 @@ public class StringAggregator implements Aggregator {
     public OpIterator iterator() {
         // some code goes here
         return new OpIterator() {
+            private HashMap<Object, List<Tuple>> groupResult;
+            private Set<Object> keySet;
+            private TupleDesc td;
+
             @Override
             public void open() throws DbException, TransactionAbortedException {
+                this.groupResult = new HashMap<>();
+                this.groupResult.putAll(group);
+                this.keySet = this.groupResult.keySet();
 
+                if(gbfield == NO_GROUPING) {
+                    this.td = new TupleDesc(new Type[]{Type.INT_TYPE}, new String[]{""});
+                } else {
+                    this.td = new TupleDesc(
+                          new Type[]{gbfieldtype, Type.INT_TYPE},
+                          new String[]{"gfield", "afield"}
+                    );
+                }
             }
 
             @Override
             public boolean hasNext() throws DbException, TransactionAbortedException {
-                return false;
+                if(this.keySet.size() == 0)
+                    return false;
+                return true;
             }
 
             @Override
             public Tuple next() throws DbException, TransactionAbortedException, NoSuchElementException {
-                return null;
+                Tuple tup = new Tuple(this.td);
+
+                for (Object o : this.keySet) {
+
+                    if (gbfield == NO_GROUPING)
+                        tup.setField(0, new IntField(groupResult.get(-1).size()));
+                    else {
+                        tup.setField(0, (Field) o);
+                        tup.setField(1, new IntField(groupResult.get(o).size()));
+                    }
+
+                    this.keySet.remove(o);
+                    return tup;
+                }
+
+                throw new NoSuchElementException("没有了");
             }
 
             @Override
             public void rewind() throws DbException, TransactionAbortedException {
-
+                this.groupResult = new HashMap<>();
+                this.groupResult.putAll(group);
+                this.keySet = this.groupResult.keySet();
             }
 
             @Override
             public TupleDesc getTupleDesc() {
-                return null;
+                return this.td;
             }
 
             @Override
             public void close() {
-
+                this.groupResult.clear();
+                this.keySet.clear();
+                this.td = null;
             }
         };
     }
