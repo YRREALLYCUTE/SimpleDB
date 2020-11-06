@@ -173,21 +173,22 @@ public class HeapFile implements DbFile {
             public boolean hasNext() throws DbException, TransactionAbortedException {
                 if(it == null)
                     return false;
-                if(readingPage < pages - 1) {
-                    boolean hasNextTupleInPage = it.hasNext();
-                    if(!hasNextTupleInPage){
+                // lab2 DeleteTest中，发现页面可能为空，所以不应该根据页数来判断是否当前页有tuple,
+                // 而是根据当前页是否有tuple决定是否读取下一个页 故作出修改。
+                boolean hasNextTupleInPage = it.hasNext();
+                while(!hasNextTupleInPage){
+                    if(readingPage < pages) {
                         Database.getBufferPool().releasePage(tid, readingPid);
                         readingPage++;
                         readingPid = new HeapPageId(getId(), readingPage);
                         page = Database.getBufferPool().getPage(tid, readingPid, Permissions.READ_ONLY);
                         it = ((HeapPage) page).iterator();
+                        hasNextTupleInPage = it.hasNext();
                     }
-                    return true;
+                    else
+                        return false;
                 }
-                if(readingPage == pages-1) {
-                   return it.hasNext();
-                }
-                return false;
+                return true;
             }
 
             @Override
