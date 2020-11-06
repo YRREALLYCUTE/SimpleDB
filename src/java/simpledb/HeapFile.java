@@ -2,6 +2,7 @@ package simpledb;
 
 import javax.xml.crypto.Data;
 import java.io.*;
+import java.lang.reflect.Array;
 import java.util.*;
 
 /**
@@ -111,15 +112,43 @@ public class HeapFile implements DbFile {
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
         // some code goes here
-        return null;
-        // not necessary for lab1
+        ArrayList<Page> pageList= new ArrayList<Page>();
+
+        // 首先file存在未满的页的时候
+        for(int i = 0; i < numPages(); i++) {
+            // 插入操作不可以直接从t的recordId中获取pid
+            HeapPage modifiedPages = (HeapPage) Database.getBufferPool().getPage(tid,
+                    new HeapPageId(this.getId(), i), Permissions.READ_WRITE);
+
+            if(modifiedPages.getNumEmptySlots() != 0) {
+                modifiedPages.insertTuple(t);
+                pageList.add(modifiedPages);
+                return pageList;
+            }
+        }
+        // 如果所有的页都满了，需要创建新的页
+        byte[] data = HeapPage.createEmptyPageData();
+        BufferedOutputStream bw = new BufferedOutputStream(new FileOutputStream(file,true));
+        bw.write(data);
+        bw.close();
+
+        HeapPage newPage = (HeapPage) Database.getBufferPool().getPage(tid, new HeapPageId(this.getId(), numPages() - 1), Permissions.READ_WRITE);
+        newPage.insertTuple(t);
+        pageList.add(newPage);
+        return pageList;
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
         // some code goes here
-        return null;
+        ArrayList<Page> modifiedPages = new ArrayList<>();
+        RecordId rid = t.getRecordId();
+        HeapPageId pid = (HeapPageId) rid.getPageId();
+        HeapPage page = (HeapPage) Database.getBufferPool().getPage(tid, pid, Permissions.READ_WRITE);
+        page.deleteTuple(t);
+        modifiedPages.add(page);
+        return modifiedPages;
         // not necessary for lab1
     }
 
