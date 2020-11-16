@@ -182,7 +182,7 @@ public class BTreeFile implements DbFile {
 	 * leaf node with permission perm.
 	 *
 	 * If f is null, it finds the left-most leaf page -- used for the iterator
-	 *
+	 *mission
 	 * @param tid - the transaction id
 	 * @param dirtypages - the list of dirty pages which should be updated with all new dirty pages
 	 * @param pid - the current page being searched
@@ -195,9 +195,39 @@ public class BTreeFile implements DbFile {
 			Field f)
 					throws DbException, TransactionAbortedException {
 		// some code goes here
-		Page page = getPage(tid, dirtypages, pid, perm);
+        // 如果是叶子节点，设置权限perm，并返回
+        if(pid.pgcateg() == BTreePageId.LEAF) {
+            return (BTreeLeafPage) getPage(tid, dirtypages, pid, perm);
+        }else{
+            // 对于internal节点
+            BTreeEntry entry;
 
-        return null;
+            BTreeInternalPage bTreeInternalPage = (BTreeInternalPage) getPage(tid, dirtypages, pid, perm);
+            Iterator<BTreeEntry> internalPageIterator = bTreeInternalPage.iterator();
+            // 判断是否有entry
+            if (internalPageIterator.hasNext()){
+                entry = internalPageIterator.next();
+            }else{
+                throw new DbException("no entry in this node");
+            }
+            BTreePageId nextId;
+            if(f == null){
+                // f = null的时候，返回最左节点
+                nextId = entry.getLeftChild();
+            }else{
+                // 否则需要和entry进行比较，找到刚好 >=f 的 entry
+                while (f.compare(Op.GREATER_THAN, entry.getKey()) && internalPageIterator.hasNext()) {
+                    entry = internalPageIterator.next();
+                }
+                // 如果f <= entry 取 entry的左子结点， 否则取右节点
+                if (f.compare(Op.LESS_THAN_OR_EQ, entry.getKey())) {
+                    nextId = entry.getLeftChild();
+                } else {
+                    nextId = entry.getRightChild();
+                }
+            }
+            return findLeafPage(tid, dirtypages, nextId, perm, f);
+        }
 	}
 
 	/**

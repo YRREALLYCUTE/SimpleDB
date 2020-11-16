@@ -254,7 +254,7 @@ public class HeapPage implements Page {
         // some code goes here
         // not necessary for lab1
         int tupleno = t.getRecordId().getTupleNumber();
-        if(this.tuples[tupleno] == null || !isSlotUsed(tupleno)) {
+        if(this.tuples[tupleno] == null || !isSlotUsed(tupleno) || !this.tuples[tupleno].toString().equals(t.toString())) {
             throw new DbException(String.format("tuple %s not in this page!", t.toString()));
         }
         this.tuples[tupleno] = null;
