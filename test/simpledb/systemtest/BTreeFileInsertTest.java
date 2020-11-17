@@ -16,7 +16,7 @@ import junit.framework.JUnit4TestAdapter;
 
 public class BTreeFileInsertTest extends SimpleDbTestBase {
 	private TransactionId tid;
-	
+
 	/**
 	 * Set up initial resources for each unit test.
 	 */
@@ -28,7 +28,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 	@After
 	public void tearDown() throws Exception {
 		Database.getBufferPool().transactionComplete(tid);
-		
+
 		// set the page size back to the default
 		BufferPool.resetPageSize();
 		Database.reset();
@@ -71,7 +71,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 			int value = ((IntField) t.getField(0)).getValue();
 			assertTrue(value >= prev);
 			prev = value;
-		} 
+		}
 	}
 
 	@Test public void addDuplicateTuples() throws Exception {
@@ -105,7 +105,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		while(it.hasNext()) {
 			it.next();
 			count++;
-		} 
+		}
 		assertEquals(600, count);
 
 		ipred = new IndexPredicate(Op.GREATER_THAN_OR_EQ, new IntField(2));
@@ -115,7 +115,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		while(it.hasNext()) {
 			it.next();
 			count++;
-		} 
+		}
 		assertEquals(1800, count);
 
 		ipred = new IndexPredicate(Op.LESS_THAN, new IntField(2));
@@ -125,7 +125,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 		while(it.hasNext()) {
 			it.next();
 			count++;
-		} 
+		}
 		assertEquals(1200, count);
 	}
 
@@ -172,7 +172,7 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 				null, null, 0);
 
 		// we will need more room in the buffer pool for this test
-		Database.resetBufferPool(500);		
+		Database.resetBufferPool(500);
 
 		// there should be 504 leaf pages + 1 internal node
 		assertEquals(505, bigFile.numPages());
@@ -233,12 +233,26 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
     	// 125*2*124 = 31000)
 		BTreeFile bigFile = BTreeUtility.createRandomBTreeFile(2, 31000,
 				null, null, 0);
-		
+
 		// we will need more room in the buffer pool for this test
 		Database.resetBufferPool(1000);
 
 		// there should be 250 leaf pages + 3 internal nodes
 		assertEquals(253, bigFile.numPages());
+
+		DbFileIterator fit1 = bigFile.iterator(tid);
+		int count1 = 0;
+		Tuple prev1 = null;
+		fit1.open();
+		while(fit1.hasNext()) {
+			Tuple tup = fit1.next();
+			if(prev1 != null)
+				assertTrue(tup.getField(0).compare(Op.GREATER_THAN_OR_EQ, prev1.getField(0)));
+			prev1 = tup;
+			count1++;
+		}
+		fit1.close();
+		System.out.println(count1);
 
 		// now insert some random tuples and make sure we can find them
 		Random rand = new Random();
@@ -260,7 +274,6 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 			fit.close();
 			assertTrue(found);
 		}
-
 		// now make sure we have 31100 records and they are all in sorted order
 		DbFileIterator fit = bigFile.iterator(tid);
 		int count = 0;
@@ -272,10 +285,14 @@ public class BTreeFileInsertTest extends SimpleDbTestBase {
 				assertTrue(tup.getField(0).compare(Op.GREATER_THAN_OR_EQ, prev.getField(0)));
 			prev = tup;
 			count++;
+
+			if(count == 249){
+				continue;
+			}
 		}
 		fit.close();
-		assertEquals(31100, count);	
-		
+		assertEquals(31100, count);
+
 	}
 
 	/**

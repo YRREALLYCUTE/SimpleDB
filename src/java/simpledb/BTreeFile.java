@@ -279,8 +279,59 @@ public class BTreeFile implements DbFile {
 		// the new entry.  getParentWithEmtpySlots() will be useful here.  Don't forget to update
 		// the sibling pointers of all the affected leaf pages.  Return the page into which a
 		// tuple with the given key field should be inserted.
-        return null;
+        // 创建一个新叶节点
+        BTreeLeafPage newLeafPage = (BTreeLeafPage) getEmptyPage(tid, dirtypages, BTreePageId.LEAF);
 
+        Iterator<Tuple> entryIterator = page.iterator();
+        // 找到中间tuple的位置
+        int midIndex = page.getNumTuples() / 2;
+        Tuple t = page.getTuple(midIndex);
+        int index = 0;
+        // 以其为切分，将本页中的mid后的删除并加入新页
+        while(entryIterator.hasNext()){
+            Tuple tuple = entryIterator.next();
+            if (index >= midIndex) {
+                page.deleteTuple(tuple);
+                newLeafPage.insertTuple(tuple);
+            }
+            index++;
+        }
+
+        // 修改的两个页面 添加到dirtyPages
+        dirtypages.put(page.pid, page);
+        dirtypages.put(newLeafPage.pid, newLeafPage);
+
+        // 设置左右兄弟节点
+		BTreePageId rightPid = page.getRightSiblingId();
+		// 判断右兄弟是否为空，不是空的话需要设置其左右兄弟
+		if (rightPid != null){
+			BTreeLeafPage rightLeafPage = (BTreeLeafPage) getPage(tid, dirtypages, rightPid, Permissions.READ_WRITE);
+			newLeafPage.setRightSiblingId(rightPid);
+			rightLeafPage.setLeftSiblingId(newLeafPage.getId());
+			dirtypages.put(rightPid, rightLeafPage);
+		}
+
+        page.setRightSiblingId(newLeafPage.getId());
+        newLeafPage.setLeftSiblingId(page.getId());
+
+        // 需要复制到父节点的key
+        Tuple keyToUp = newLeafPage.getTuple(0);
+
+        // 使用getParentWithEmpty找到有空的父节点，否则需要进行切分
+		// getParentWithEmptySlots这个函数中，做了迭代操作，包括父节点为root且满的情况
+        BTreeInternalPage parentPage = getParentWithEmptySlots(tid, dirtypages, page.getParentId(), keyToUp.getField(keyField));
+		parentPage.insertEntry(new BTreeEntry(keyToUp.getField(keyField), page.pid, newLeafPage.pid));
+
+		// 设置父节点
+		newLeafPage.setParentId(parentPage.getId());
+		page.setParentId(parentPage.getId());
+
+        // 判断插入的tuple在新页还是旧页
+        if(field.compare(Op.LESS_THAN_OR_EQ, t.getField(keyField))){
+            return page;
+        }else{
+            return newLeafPage;
+        }
 	}
 
 	/**
@@ -317,7 +368,54 @@ public class BTreeFile implements DbFile {
 		// the parent pointers of all the children moving to the new page.  updateParentPointers()
 		// will be useful here.  Return the page into which an entry with the given key field
 		// should be inserted.
-		return null;
+		// 跟上面的逻辑基本上一样
+		BTreeInternalPage newInternalPage = (BTreeInternalPage) getEmptyPage(tid, dirtypages, BTreePageId.INTERNAL);
+		int midIndex = page.getNumEntries() / 2;
+		Iterator<BTreeEntry> entryIterator = page.iterator();
+
+
+		int index = 0;
+		BTreeEntry keyToUp = null;
+		while(entryIterator.hasNext()){
+			BTreeEntry entry = entryIterator.next();
+			if(index == midIndex) {
+				page.deleteKeyAndRightChild(entry);
+				keyToUp = entry;
+			}
+			if(index > midIndex) {
+				page.deleteKeyAndRightChild(entry);
+				newInternalPage.insertEntry(entry);
+				// 更新指针
+				updateParentPointer(tid, dirtypages, newInternalPage.getId(), entry.getRightChild());
+			}
+			index++;
+		}
+		if (keyToUp == null)
+			throw new DbException("there is something wrong");
+
+		updateParentPointer(tid, dirtypages, newInternalPage.getId(), keyToUp.getRightChild());
+
+		BTreeInternalPage parent = getParentWithEmptySlots(tid, dirtypages, page.getParentId(), keyToUp.getKey());
+		// emmm 这里直接设置左右节点并插入entry，如果先插入在设置更新的话，节点的类型不会变化，
+		// 应该是一个小bug 0.0， updateEntry目前没有更新子节点的类型，应该是要更新的
+		keyToUp.setLeftChild(page.getId());
+		keyToUp.setRightChild(newInternalPage.getId());
+		parent.insertEntry(keyToUp);
+
+		page.setParentId(parent.getId());
+		newInternalPage.setParentId(parent.getId());
+
+		// 修改的页面加入dirtyPages
+		dirtypages.put(page.getId(), page);
+		dirtypages.put(newInternalPage.getId(), newInternalPage);
+		dirtypages.put(parent.getId(), parent);
+
+		// 选择返回的页面·
+		if(field.compare(Op.LESS_THAN_OR_EQ, keyToUp.getKey())) {
+			return page;
+		}else{
+			return newInternalPage;
+		}
 	}
 
 	/**
