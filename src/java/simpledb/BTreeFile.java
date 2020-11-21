@@ -695,7 +695,7 @@ public class BTreeFile implements DbFile {
 	 * Steal tuples from a sibling and copy them to the given page so that both pages are at least
 	 * half full.  Update the parent's entry so that the key matches the key field of the first
 	 * tuple in the right-hand page.
-	 *
+     *
 	 * @param page - the leaf page which is less than half full
 	 * @param sibling - the sibling which has tuples to spare
 	 * @param parent - the parent of the two leaf pages
@@ -704,6 +704,7 @@ public class BTreeFile implements DbFile {
 	 *
 	 * @throws DbException
 	 */
+	// todo: lab3 ex3 stealFromLeafPage
 	protected void stealFromLeafPage(BTreeLeafPage page, BTreeLeafPage sibling,
 			BTreeInternalPage parent, BTreeEntry entry, boolean isRightSibling) throws DbException {
 		// some code goes here
@@ -783,6 +784,7 @@ public class BTreeFile implements DbFile {
 	 * @throws IOException
 	 * @throws TransactionAbortedException
 	 */
+    // todo: lab3 ex3 stealLeftInternal
 	protected void stealFromLeftInternalPage(TransactionId tid, HashMap<PageId, Page> dirtypages,
 			BTreeInternalPage page, BTreeInternalPage leftSibling, BTreeInternalPage parent,
 			BTreeEntry parentEntry) throws DbException, IOException, TransactionAbortedException {
@@ -811,6 +813,7 @@ public class BTreeFile implements DbFile {
 	 * @throws IOException
 	 * @throws TransactionAbortedException
 	 */
+    // todo: lab3 ex3 stealRightInternal
 	protected void stealFromRightInternalPage(TransactionId tid, HashMap<PageId, Page> dirtypages,
 			BTreeInternalPage page, BTreeInternalPage rightSibling, BTreeInternalPage parent,
 			BTreeEntry parentEntry) throws DbException, IOException, TransactionAbortedException {
@@ -823,8 +826,11 @@ public class BTreeFile implements DbFile {
 
 	/**
 	 * Merge two leaf pages by moving all tuples from the right page to the left page.
+     * 通过移动tuple的方式合并两个叶节点
 	 * Delete the corresponding key and right child pointer from the parent, and recursively
-	 * handle the case when the parent gets below minimum occupancy.
+	 * 删除key和右孩子指针 递归处理parent也需要合并的情况
+     * handle the case when the parent gets below minimum occupancy.
+     * 更新兄弟节点指针
 	 * Update sibling pointers as needed, and make the right page available for reuse.
 	 *
 	 * @param tid - the transaction id
@@ -839,6 +845,7 @@ public class BTreeFile implements DbFile {
 	 * @throws IOException
 	 * @throws TransactionAbortedException
 	 */
+    // todo: lab3 ex3 mergeLeafPages
 	protected void mergeLeafPages(TransactionId tid, HashMap<PageId, Page> dirtypages,
 			BTreeLeafPage leftPage, BTreeLeafPage rightPage, BTreeInternalPage parent, BTreeEntry parentEntry)
 					throws DbException, IOException, TransactionAbortedException {
@@ -849,6 +856,30 @@ public class BTreeFile implements DbFile {
 		// the sibling pointers, and make the right page available for reuse.
 		// Delete the entry in the parent corresponding to the two pages that are merging -
 		// deleteParentEntry() will be useful here
+        Iterator<Tuple> rightIterator = rightPage.iterator();
+        while (rightIterator.hasNext()) {
+            Tuple tuple = rightIterator.next();
+            rightPage.deleteTuple(tuple);
+            leftPage.insertTuple(tuple);
+        }
+
+        dirtypages.put(leftPage.getId(), leftPage);
+        dirtypages.put(parent.getId(), parent);
+        dirtypages.put(rightPage.getId(), rightPage);
+
+        setEmptyPage(tid, dirtypages, rightPage.getId().getPageNumber());
+
+        if(rightPage.getRightSiblingId() != null) {
+            BTreePageId newRightLeafPageId = rightPage.getRightSiblingId();
+            BTreeLeafPage newRightPage = (BTreeLeafPage) getPage(tid, dirtypages, newRightLeafPageId, Permissions.READ_WRITE);
+
+            leftPage.setRightSiblingId(newRightLeafPageId);
+            newRightPage.setLeftSiblingId(leftPage.getId());
+        }else{
+            leftPage.setRightSiblingId(null);
+        }
+
+        deleteParentEntry(tid, dirtypages, leftPage, parent, parentEntry);
 	}
 
 	/**
@@ -871,6 +902,7 @@ public class BTreeFile implements DbFile {
 	 * @throws IOException
 	 * @throws TransactionAbortedException
 	 */
+    // todo: lab3 ex3 mergeInternalPages
 	protected void mergeInternalPages(TransactionId tid, HashMap<PageId, Page> dirtypages,
 			BTreeInternalPage leftPage, BTreeInternalPage rightPage, BTreeInternalPage parent, BTreeEntry parentEntry)
 					throws DbException, IOException, TransactionAbortedException {
@@ -882,6 +914,34 @@ public class BTreeFile implements DbFile {
 		// and make the right page available for reuse
 		// Delete the entry in the parent corresponding to the two pages that are merging -
 		// deleteParentEntry() will be useful here
+
+        Iterator<BTreeEntry> entryIterator = rightPage.iterator();
+        BTreeInternalPageReverseIterator reverseIterator = (BTreeInternalPageReverseIterator) leftPage.reverseIterator();
+
+        deleteParentEntry(tid, dirtypages, leftPage, parent, parentEntry);
+        int index = 0;
+        while (entryIterator.hasNext()) {
+            BTreeEntry entry = entryIterator.next();
+            if(index == 0) {
+                // parentEntry下沉到子节点
+                parentEntry.setRightChild(reverseIterator.next().getRightChild());
+                parentEntry.setLeftChild(entry.getLeftChild());
+                leftPage.insertEntry(parentEntry);
+            }
+
+            rightPage.deleteKeyAndRightChild(entry);
+            leftPage.insertEntry(entry);
+
+            index++;
+        }
+        // 更新指针
+        updateParentPointers(tid, dirtypages, leftPage);
+        // 放入脏页
+        dirtypages.put(rightPage.getId(), rightPage);
+        dirtypages.put(leftPage.getId(), leftPage);
+        dirtypages.put(parent.getId(), parent);
+
+        setEmptyPage(tid, dirtypages, rightPage.getId().getPageNumber());
 	}
 
 	/**
