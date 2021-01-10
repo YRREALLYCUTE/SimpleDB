@@ -259,7 +259,6 @@ public class JoinOptimizer {
         for (int i = 1; i <= numJoinNodes; i ++) {
             Set<Set<LogicalJoinNode>> setOfSubset = this.enumerateSubsets(this.joins, i);
             for (Set<LogicalJoinNode> s : setOfSubset) {
-                // this.computeCostAndCardOfSubplan(stats, filterSelectivities, toRemove, sub, best, memo);
                 Double bestCostSofar = Double.MAX_VALUE;
                 CostCard bestPlan = new CostCard();
                 for (LogicalJoinNode toRemove : s) {
@@ -269,7 +268,6 @@ public class JoinOptimizer {
                         bestPlan = plan;
                     }
                 }
-                // if (bestPlan.plan.size() == 0) throw new ParsingException("error: no plan are found");
                 memo.addPlan(s, bestPlan.cost, bestPlan.card, bestPlan.plan);
             }
         }
